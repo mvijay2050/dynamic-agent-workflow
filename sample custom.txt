@@ -1,0 +1,38 @@
+[
+  { 
+    "source": "architecture",
+    "target": "components",
+    "condition": "\"queue\" in results.get(\"architecture\", {}).get(\"services\", [])"
+  },
+  {
+    "source": "architecture",
+    "target": "flowchart",
+    "condition": "\"queue\" in results.get(\"architecture\", {}).get(\"services\", [])"
+  },
+  # documentation waits on both; will run when both done
+  { "source": "components", "target": "documentation" },
+  { "source": "flowchart",  "target": "documentation" }
+]
+
+
+#-------------
+
+[
+  {
+    "source": "architecture",
+    "target": "components"
+  },
+  {
+    "source": "components",
+    "target": "flowchart",
+    "condition": "len(results.get(\"components\", [])) > 0"
+  },
+  {
+    "source": "flowchart",
+    "target": "documentation"
+  },
+  {
+    "source": "documentation",
+    "target": "cdm"
+  }
+]
