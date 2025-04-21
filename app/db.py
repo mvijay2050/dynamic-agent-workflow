@@ -1,4 +1,5 @@
 # app/db.py
+
 import os
 from sqlalchemy import (
     create_engine, Column, Integer, String, Text, JSON, ForeignKey
@@ -40,13 +41,14 @@ class TaskResult(Base):
 # --- Dynamic (User-Defined) Tasks ---
 class CustomTask(Base):
     __tablename__ = "custom_tasks"
-    key = Column(String, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    key             = Column(String, primary_key=True, index=True)
+    name            = Column(String, nullable=False)
     prompt_template = Column(Text, nullable=False)
+    technology      = Column(String, nullable=False)  # ← New column
 
 def init_db():
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist (including the new column)."""
     Base.metadata.create_all(bind=engine)
 
-# Auto-create tables on import
+# Auto-create/update tables on import
 init_db()

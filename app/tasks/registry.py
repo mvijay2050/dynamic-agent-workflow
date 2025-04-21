@@ -1,5 +1,6 @@
 # app/tasks/registry.py
-import os, importlib
+import os
+import importlib
 from typing import Dict
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
@@ -29,32 +30,52 @@ gateway_llm = SalesforceGatewayLLM(
     verify=os.getenv("SF_VERIFY_PATH")
 )
 
-def discover_tasks() -> Dict[str, BaseTask]:
+def discover_tasks(for_tech: str) -> Dict[str, BaseTask]:
+    """
+    Discover both built-in and custom tasks filtered by source technology.
+
+    :param for_tech: The source technology key (e.g. "TIBCO", "BizTalk").
+    :return: Mapping of task_key to BaseTask instance.
+    """
     tasks: Dict[str, BaseTask] = {}
 
-    # Built‑in tasks
-    folder = os.path.dirname(__file__)
-    for fname in os.listdir(folder):
+    # Built-in tasks
+    task_folder = os.path.dirname(__file__)
+    for fname in os.listdir(task_folder):
         if not fname.endswith("_task.py") or fname == "base_task.py":
             continue
-        mod = importlib.import_module(f"app.tasks.{fname[:-3]}")
+        module_name = f"app.tasks.{fname[:-3]}"
+        mod = importlib.import_module(module_name)
         for attr in dir(mod):
             cls = getattr(mod, attr)
-            if isinstance(cls, type) and issubclass(cls, BaseTask) and cls is not BaseTask:
-                inst = cls()
-                tasks[inst.key] = inst
+            if (
+                isinstance(cls, type)
+                and issubclass(cls, BaseTask)
+                and cls is not BaseTask
+            ):
+                inst: BaseTask = cls()
+                # Only include if this task supports the given technology
+                if for_tech in getattr(inst, "supported_techs", []):
+                    tasks[inst.key] = inst
 
-    # Custom tasks
+    # Custom tasks from DB
     db: Session = SessionLocal()
-    for ct in db.query(CustomTask).all():
+    for ct in db.query(CustomTask).filter(CustomTask.technology == for_tech):
         prompt = PromptTemplate(input_variables=["code"], template=ct.prompt_template)
         chain  = LLMChain(llm=gateway_llm, prompt=prompt)
 
         class _Custom(BaseTask):
             @property
-            def key(self): return ct.key
+            def key(self) -> str:
+                return ct.key
+
             @property
-            def name(self): return ct.name
+            def name(self) -> str:
+                return ct.name
+
+            # custom tasks inherit all techs or you can restrict
+            supported_techs = [for_tech]
+
             def run(self, input_text: str) -> dict:
                 out = chain.run({"code": input_text})
                 return {ct.key: out}
